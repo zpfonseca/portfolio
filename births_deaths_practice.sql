@@ -1,0 +1,116 @@
+-- ALTER COLUMN DATATYPE
+ALTER TABLE dbo.deaths
+ALTER COLUMN year INT;
+
+-- SET "NONE" AS NULL
+UPDATE dbo.deaths
+SET code = NULL
+WHERE code like 'NONE';
+
+-- BIRTHS/DEATHS FROM 1950 TO 2020 
+SELECT country, year, births
+FROM dbo.births
+WHERE code is not NULL AND births is not NULL
+ORDER by year
+
+SELECT country, year, deaths
+FROM dbo.deaths
+WHERE code is not NULL AND deaths is not NULL
+ORDER by year
+
+-- HIGHEST BIRTH/DEATH COUNT FOR EACH COUNTRY or REGIONS
+
+SELECT country, code, MAX(births) as maxBirths
+FROM dbo.births
+WHERE code is not NULL
+GROUP BY country, code
+ORDER by maxBirths DESC;
+
+SELECT country, code, MAX(deaths) as maxDeaths
+FROM dbo.deaths
+WHERE code is not NULL
+GROUP BY country, code
+ORDER by maxDeaths DESC;
+
+SELECT country, code, MAX(births) as maxBirths
+FROM dbo.births
+WHERE code is NULL
+GROUP BY country, code
+ORDER by maxBirths DESC;
+
+-- AMOUNT OF BIRTHS/DEATHS IN THE PAST 10 YEARS
+
+SELECT country, code, year, births
+FROM dbo.births
+WHERE code is not NULL and year >= 2011 and births is NOT NULL
+ORDER BY 1,3 DESC
+
+SELECT country, code, year, deaths
+FROM dbo.deaths
+WHERE code is not NULL and year >= 2011 and deaths is NOT NULL
+ORDER BY 1,3 DESC
+
+-- SUM OF DEATHS FROM CHINA IN THE PAST 10 YEARS
+
+SELECT country, year, deaths
+FROM dbo.deaths
+WHERE country like 'China' and year >= 2011 and deaths is NOT NULL
+
+CREATE TABLE chinaDeaths(
+	country NVARCHAR (255),
+	year INT,
+	deaths INT);
+
+INSERT INTO chinaDeaths
+	SELECT country, year, deaths
+	FROM dbo.deaths
+	WHERE country like 'China' and year >= 2011 and deaths is NOT NULL;
+
+SELECT country, SUM(deaths) as sumDeaths10years
+FROM chinaDeaths
+GROUP BY country;
+
+-- COMPARISION OF BIRTHS/DEATHS IN PORTUGAL FROM 2000
+
+SELECT bir.country, bir.year, bir.births, dea.deaths, (bir.births - dea.deaths) as difference
+FROM dbo.births bir
+JOIN dbo.deaths dea
+	ON bir.country = dea.country AND bir.year = dea.year
+WHERE bir.country like 'Portugal' and bir.year < 2021 and bir.year > 1999
+ORDER BY bir.year DESC
+
+-- AVERAGE BIRTH/DEATHS IN PORTUGAL SINCE 1950
+
+SELECT bir.country, AVG(bir.births) as averageBirths, AVG(dea.deaths) as averageDeaths
+FROM dbo.births bir
+JOIN dbo.deaths dea
+	ON bir.country = dea.country
+WHERE bir.country like 'Portugal'
+GROUP BY bir.country
+
+-- COMPARISION AND AVERAGE THROUGHOUT YEARS
+
+SELECT bir.country, bir.code, bir.year, bir.births, SUM(CAST(bir.births AS BIGINT)) OVER (partition by bir.country ORDER by bir.year) 
+as sumBirths, AVG(CAST(bir.births AS BIGINT)) OVER (partition by bir.country ORDER by bir.year) as avgBirths, dea.deaths, 
+SUM(CAST(dea.deaths AS BIGINT)) OVER (partition by dea.country ORDER by dea.year) as sumDeaths, AVG(CAST(dea.deaths AS BIGINT)) 
+OVER (partition by dea.country ORDER by dea.year) as avgDeaths
+FROM dbo.births bir
+JOIN dbo.deaths dea
+	ON bir.country = dea.country AND bir.year = dea.year
+WHERE bir.year < 2020 AND bir.year > 1998 AND bir.code is not NULL
+GROUP BY bir.country, dea.country, bir.year, dea.year, bir.births, dea.deaths, bir.code
+ORDER BY bir.country, bir.year DESC;
+
+-- CREATING VIEW
+
+CREATE VIEW FinalAnalysis as 
+SELECT bir.country, bir.code, bir.year, bir.births, SUM(CAST(bir.births AS BIGINT)) OVER (partition by bir.country ORDER by bir.year) 
+as sumBirths, AVG(CAST(bir.births AS BIGINT)) OVER (partition by bir.country ORDER by bir.year) as avgBirths, dea.deaths, 
+SUM(CAST(dea.deaths AS BIGINT)) OVER (partition by dea.country ORDER by dea.year) as sumDeaths, AVG(CAST(dea.deaths AS BIGINT)) 
+OVER (partition by dea.country ORDER by dea.year) as avgDeaths
+FROM dbo.births bir
+JOIN dbo.deaths dea
+	ON bir.country = dea.country AND bir.year = dea.year
+WHERE bir.year < 2020 AND bir.year > 1998 AND bir.code is not NULL
+GROUP BY bir.country, dea.country, bir.year, dea.year, bir.births, dea.deaths, bir.code
+-- ORDER BY bir.country, bir.year DESC;
